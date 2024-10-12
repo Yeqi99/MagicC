@@ -45,12 +45,12 @@ public class WorldFunction extends ArgsFunction {
                 }
             }
             case "B":{
-                WorldResult worldResult = (WorldResult) list.get(0);
+                WorldResult worldResult = (WorldResult) list.getFirst();
                 worldResult.getWorld().saveInstance();
                 return new NullResult();
             }
             case "C":{
-                StringResult name = (StringResult) list.get(0);
+                StringResult name = (StringResult) list.getFirst();
                 if (Main.publicContextMap.hasVariable("world."+name.toString())){
                     WorldResult worldResult= (WorldResult) Main.publicContextMap.getVariable("world."+name);
                     return new WorldResult(worldResult.getWorld());

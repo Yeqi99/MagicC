@@ -1,7 +1,6 @@
 package cn.originmc.server;
 
 import cn.origincraft.magic.MagicManager;
-import cn.origincraft.magic.expression.functions.FunctionResult;
 import cn.origincraft.magic.function.results.NumberResult;
 import cn.origincraft.magic.function.results.StringResult;
 import cn.origincraft.magic.manager.MagicInstance;
@@ -23,7 +22,9 @@ import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.block.Block;
 
 import java.io.File;
-import java.net.URL;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 public class Main {
@@ -37,7 +38,9 @@ public class Main {
         instanceManager = MinecraftServer.getInstanceManager();
         magicManager.registerDefaultFunction();
         FunctionRegister.register();
-        MagicPackage configPackage=getMagicPackage("config");
+        // 加载配置文件包
+        MagicPackage configPackage=getMagicPackage("magic");
+        // 从配置文件包获取默认配置脚
         MagicInstance serverConfig=configPackage.getMagicInstance("server");
         Spell spell= serverConfig.getSpell(magicManager);
         SpellContext spellContext= spell.execute(publicContextMap);
@@ -70,7 +73,6 @@ public class Main {
         minecraftServer.start(ipResult.toString(),portResult.toInteger());
 
         Scanner scanner = new Scanner(System.in);
-
         while (true) {
             System.out.println("输入多行文本 (输入 'END' 表示结束，直接输入 'STOP' 可以退出程序):");
             StringBuilder inputText = new StringBuilder();
@@ -101,29 +103,50 @@ public class Main {
             }
         }
         scanner.close();
-
     }
-    public static MagicPackage getMagicPackage(String path){
-        // 创建一个MagicPackage实例，假设这个类是用来处理配置文件的
-        MagicPackage magicPackage = new MagicPackage(path);
 
-        // 尝试在当前工作目录下找到名为"config"的文件或目录
-        File config = new File(path);
+    public static MagicPackage getMagicPackage(String dirPath) {
+        File configDir = new File(dirPath);
+        if (!configDir.exists()) {
+            configDir.mkdirs();
+        }
 
-        // 检查该路径是否存在
-        if (config.exists()) {
-            // 如果存在，使用该路径的绝对路径加载文件
-            magicPackage.loadFiles(config.getAbsolutePath());
-        } else {
-            // 如果不存在，尝试从类路径（即Jar包内部）获取资源
-            URL url = Main.class.getClassLoader().getResource(path);
+        MagicPackage magicPackage = new MagicPackage(dirPath);
 
-            // 检查资源是否存在
-            if (url != null) {
-                // 如果资源存在，从URL获取路径并加载文件
-                magicPackage.loadFiles(url.getPath());
+        // 默认的配置文件名列表
+        List<String> defaultConfigs = Arrays.asList("server.m");
+
+        for (String configName : defaultConfigs) {
+            File configFile = new File(configDir, configName);
+            if (!configFile.exists()) {
+                // 尝试从类路径加载资源并复制到指定目录
+                copyResourceToFile("magic/" + configName, configFile);
             }
         }
+
+        // 加载目录中的所有文件
+        magicPackage.loadFiles(configDir.getAbsolutePath());
         return magicPackage;
+    }
+
+    private static void copyResourceToFile(String resourcePath, File targetFile) {
+        try (InputStream inputStream = Main.class.getClassLoader().getResourceAsStream(resourcePath)) {
+            if (inputStream == null) {
+                // 为了调试，如果找不到资源，输出错误消息和路径
+                System.err.println("资源文件未找到: " + resourcePath);
+                return;
+            }
+
+            try (FileOutputStream outputStream = new FileOutputStream(targetFile)) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+                System.out.println("文件成功复制至：" + targetFile.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

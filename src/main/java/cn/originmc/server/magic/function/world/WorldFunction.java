@@ -15,9 +15,15 @@ import net.minestom.server.MinecraftServer;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.anvil.AnvilLoader;
+import net.minestom.server.instance.block.Block;
 import net.minestom.server.instance.generator.Generator;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,16 +43,41 @@ public class WorldFunction extends ArgsFunction {
                     Main.publicContextMap.putVariable("world."+name.toString(),new WorldResult(instanceContainer));
                     return new WorldResult(instanceContainer);
                 }else {
-                    InstanceManager instanceManager= Main.instanceManager;
-                    InstanceContainer instanceContainer=instanceManager.createInstanceContainer();
-                    Main.publicContextMap.putVariable("world."+name.toString(),new WorldResult(instanceContainer));
-                    instanceContainer.saveChunksToStorage();
-                    return new WorldResult(instanceContainer);
+                    Path sourceDir = Paths.get("resource/VoidWorld");
+                    Path targetDir = Paths.get(path.toString());
+                    try {
+                        if (!Files.exists(sourceDir)) {
+                            System.err.println("源目录不存在，请检查是否存在 resource/VoidWorld");
+                            return null; // 或者抛出异常
+                        }
+                        if (!Files.exists(targetDir)) {
+                            Files.createDirectories(targetDir);
+                        }
+                        // 复制文件
+                        Files.walk(sourceDir).forEach(source -> {
+                            Path destination = targetDir.resolve(sourceDir.relativize(source));
+                            try {
+                                // 复制文件并覆盖同名文件
+                                Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING);
+                            } catch (IOException e) {
+                                System.err.println("复制文件失败: " + source + " 到 " + destination);
+                            }
+                        });
+                        // 复制完成后加载实例
+                        AnvilLoader anvilLoader = new AnvilLoader(path.toString());
+                        InstanceManager instanceManager = Main.instanceManager;
+                        InstanceContainer instanceContainer = instanceManager.createInstanceContainer(anvilLoader);
+                        Main.publicContextMap.putVariable("world." + name.toString(), new WorldResult(instanceContainer));
+                        return new WorldResult(instanceContainer);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        return new NullResult();
+                    }
                 }
             }
             case "B":{
                 WorldResult worldResult = (WorldResult) list.getFirst();
-                worldResult.getWorld().saveInstance();
+                worldResult.getWorld().saveChunksToStorage();
                 return new NullResult();
             }
             case "C":{

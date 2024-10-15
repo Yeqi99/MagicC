@@ -17,15 +17,19 @@ import net.minestom.server.coordinate.Pos;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.GlobalEventHandler;
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent;
+import net.minestom.server.instance.Chunk;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.InstanceManager;
+import net.minestom.server.instance.LightingChunk;
 import net.minestom.server.instance.block.Block;
+import net.minestom.server.utils.chunk.ChunkUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public class Main {
     public static MagicManager magicManager=new MagicManager();
@@ -71,6 +75,16 @@ public class Main {
 
         // 服务器按照配置文件监听
         minecraftServer.start(ipResult.toString(),portResult.toInteger());
+
+        var chunks = new ArrayList<CompletableFuture<Chunk>>();
+        ChunkUtils.forChunksInRange(0, 0, 32, (x, z) -> chunks.add(instanceContainer.loadChunk(x, z)));
+
+        CompletableFuture.runAsync(() -> {
+            CompletableFuture.allOf(chunks.toArray(CompletableFuture[]::new)).join();
+            System.out.println("load end");
+            LightingChunk.relight(instanceContainer, instanceContainer.getChunks());
+            System.out.println("light end");
+        });
 
         Scanner scanner = new Scanner(System.in);
         while (true) {
